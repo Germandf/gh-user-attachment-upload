@@ -1,0 +1,3 @@
+.env
+*.local.ps1
+artifacts/
