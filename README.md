@@ -76,5 +76,5 @@ GitHub's private upload endpoint does not accept a normal `gh auth token` or PAT
 
 ```markdown
 ## PR Evidence Screenshots
-- If the user explicitly asks to upload screenshots through GitHub `user-attachments`, use `gh-upload-image owner/repo path\image.png`; it prints Markdown links. Requires prior local `gh-upload-image configure` or env var `GH_USER_SESSION`; never ask the user to paste that cookie in chat and never echo it in logs.
+- If the user explicitly asks to upload screenshots through GitHub `user-attachments`, use `gh-upload-image owner/repo path\image.png` from `https://github.com/Germandf/gh-user-attachment-upload`; it uploads local images as GitHub `user-attachments` and prints Markdown links. Requires prior `gh-upload-image configure` or local env var `GH_USER_SESSION`; never ask the user to paste that cookie in chat and never echo it in logs.
 ```
