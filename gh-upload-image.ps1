@@ -4,12 +4,12 @@ Uploads local images as GitHub user attachments and prints Markdown links.
 
 .DESCRIPTION
 This uses GitHub's undocumented web upload flow. It is intentionally narrow:
-the only supported credential source is GH_USER_SESSION, which must contain a
-github.com user_session cookie value. The script does not read browser cookies,
-does not edit PRs/issues, and does not persist credentials.
+the supported credential sources are a locally configured session or
+GH_USER_SESSION. The script does not read browser cookies and does not edit
+PRs/issues.
 
 .EXAMPLE
-$env:GH_USER_SESSION = '<github user_session cookie value>'
+.\gh-upload-image.ps1 configure
 .\gh-upload-image.ps1 Eternet/Eternet.Netmap .\screenshot.png
 #>
 
@@ -28,22 +28,129 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $script:UserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+$script:ConfigDir = Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'gh-user-attachment-upload'
+if ([string]::IsNullOrWhiteSpace($script:ConfigDir)) {
+    $script:ConfigDir = Join-Path $HOME '.gh-user-attachment-upload'
+}
+$script:SessionPath = Join-Path $script:ConfigDir 'session.txt'
 
 function Show-Usage {
     @'
 Usage:
+  gh-upload-image configure
   gh-upload-image owner/repo path\image.png [path\another.png ...]
+  gh-upload-image clear-session
 
-Requires:
-  GH_USER_SESSION = github.com user_session cookie value
+Session:
+  Run configure once, or set GH_USER_SESSION for one-off/CI usage.
 
 Output:
   Markdown image links using https://github.com/user-attachments/assets/...
 '@
 }
 
+function Convert-SecureStringToPlainText {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Security.SecureString] $SecureString
+    )
+
+    $bstr = [IntPtr]::Zero
+    try {
+        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureString)
+        return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+    }
+    finally {
+        if ($bstr -ne [IntPtr]::Zero) {
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        }
+    }
+}
+
+function Save-Session {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Session
+    )
+
+    $secure = ConvertTo-SecureString $Session -AsPlainText -Force
+    $encrypted = $secure | ConvertFrom-SecureString
+    New-Item -ItemType Directory -Force -Path $script:ConfigDir | Out-Null
+    Set-Content -LiteralPath $script:SessionPath -Value $encrypted -Encoding ASCII -NoNewline
+}
+
+function Get-SavedSession {
+    if (-not (Test-Path -LiteralPath $script:SessionPath)) {
+        return $null
+    }
+
+    try {
+        $encrypted = Get-Content -LiteralPath $script:SessionPath -Raw
+        $secure = $encrypted | ConvertTo-SecureString
+        return Convert-SecureStringToPlainText $secure
+    }
+    catch {
+        throw "Could not read saved session from $script:SessionPath. Run 'gh-upload-image configure' again."
+    }
+}
+
+function Resolve-Session {
+    $fromEnv = [string] $env:GH_USER_SESSION
+    if (-not [string]::IsNullOrWhiteSpace($fromEnv)) {
+        return $fromEnv
+    }
+
+    return Get-SavedSession
+}
+
+function Invoke-Configure {
+    [Console]::Error.WriteLine('Paste the github.com user_session cookie value. Input is hidden and will be saved locally for this OS user.')
+    $secure = Read-Host -Prompt 'user_session' -AsSecureString
+    $plain = Convert-SecureStringToPlainText $secure
+    try {
+        if ([string]::IsNullOrWhiteSpace($plain)) {
+            [Console]::Error.WriteLine('Session value cannot be empty.')
+            exit 2
+        }
+
+        Save-Session $plain.Trim()
+        Write-Host "Saved session to $script:SessionPath"
+    }
+    finally {
+        if ($null -ne $secure) {
+            $secure.Dispose()
+        }
+    }
+}
+
+function Clear-Session {
+    if (Test-Path -LiteralPath $script:SessionPath) {
+        Remove-Item -LiteralPath $script:SessionPath -Force
+    }
+    Write-Host "Cleared saved session from $script:SessionPath"
+}
+
 if ($Help) {
     Show-Usage
+    exit 0
+}
+
+$command = if ($null -eq $Repo) { '' } else { $Repo.Trim().ToLowerInvariant() }
+if ($command -in @('configure', 'config', 'login')) {
+    if ($null -ne $Path -and $Path.Count -gt 0) {
+        [Console]::Error.WriteLine('configure does not take file arguments.')
+        exit 2
+    }
+    Invoke-Configure
+    exit 0
+}
+
+if ($command -in @('clear-session', 'logout')) {
+    if ($null -ne $Path -and $Path.Count -gt 0) {
+        [Console]::Error.WriteLine('clear-session does not take file arguments.')
+        exit 2
+    }
+    Clear-Session
     exit 0
 }
 
@@ -431,9 +538,9 @@ function Upload-GitHubUserAttachment {
     return Complete-Upload -Client $Client -Repo $Repo -Policy $policy
 }
 
-$session = [string] $env:GH_USER_SESSION
+$session = Resolve-Session
 if ([string]::IsNullOrWhiteSpace($session)) {
-    [Console]::Error.WriteLine('Set GH_USER_SESSION to a github.com user_session cookie value before running this tool.')
+    [Console]::Error.WriteLine("No GitHub web session configured. Run 'gh-upload-image configure' once, or set GH_USER_SESSION for this process.")
     exit 2
 }
 
