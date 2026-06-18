@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-Uploads local images as GitHub user attachments and prints Markdown links.
+Uploads local images or videos as GitHub user attachments and prints Markdown-ready links.
 
 .DESCRIPTION
 This uses GitHub's undocumented web upload flow. It is intentionally narrow:
@@ -11,6 +11,7 @@ PRs/issues.
 .EXAMPLE
 .\gh-upload-image.ps1 configure
 .\gh-upload-image.ps1 Eternet/Eternet.Netmap .\screenshot.png
+.\gh-upload-image.ps1 Eternet/Eternet.Netmap .\demo.mp4
 #>
 
 [CmdletBinding()]
@@ -38,14 +39,14 @@ function Show-Usage {
     @'
 Usage:
   gh-upload-image configure
-  gh-upload-image owner/repo path\image.png [path\another.png ...]
+  gh-upload-image owner/repo path\file.ext [path\another.mp4 ...]
   gh-upload-image clear-session
 
 Session:
   Run configure once, or set GH_USER_SESSION for one-off/CI usage.
 
 Output:
-  Markdown image links using https://github.com/user-attachments/assets/...
+  Markdown-ready GitHub user-attachments URLs.
 '@
 }
 
@@ -273,6 +274,9 @@ function Get-ContentType {
         '.webp' { return 'image/webp' }
         '.bmp'  { return 'image/bmp' }
         '.svg'  { return 'image/svg+xml' }
+        '.mp4'  { return 'video/mp4' }
+        '.mov'  { return 'video/quicktime' }
+        '.webm' { return 'video/webm' }
         default { return 'application/octet-stream' }
     }
 }
@@ -503,10 +507,24 @@ function Complete-Upload {
         $name = [string] $Policy.asset.name
     }
 
+    $assetContentTypeProperty = $asset.PSObject.Properties['content_type']
+    $contentType = if ($null -eq $assetContentTypeProperty) { '' } else { [string] $assetContentTypeProperty.Value }
+    if ([string]::IsNullOrWhiteSpace($contentType)) {
+        $policyContentTypeProperty = $Policy.asset.PSObject.Properties['content_type']
+        $contentType = if ($null -eq $policyContentTypeProperty) { '' } else { [string] $policyContentTypeProperty.Value }
+    }
+
+    $markdown = if ($contentType.StartsWith('video/', [StringComparison]::OrdinalIgnoreCase)) {
+        [string] $asset.href
+    }
+    else {
+        "![${name}]($($asset.href))"
+    }
+
     return [pscustomobject] @{
         Url = [string] $asset.href
         Name = $name
-        Markdown = "![${name}]($($asset.href))"
+        Markdown = $markdown
     }
 }
 

@@ -1,8 +1,8 @@
 # gh-user-attachment-upload
 
-Small PowerShell CLI for uploading local images to GitHub `user-attachments` and printing Markdown links.
+Small PowerShell CLI for uploading local images or videos to GitHub `user-attachments` and printing Markdown links.
 
-This exists for AI-agent PR evidence workflows where screenshots need to be embedded in private GitHub PRs without committing files, creating releases, creating gists, or depending on a third-party binary.
+This exists for AI-agent PR evidence workflows where screenshots or short videos need to be embedded in private GitHub PRs without committing files, creating releases, creating gists, or depending on a third-party binary.
 
 ## Background
 
@@ -39,10 +39,11 @@ First-time local setup:
 gh-upload-image configure
 ```
 
-Then upload images:
+Then upload images or videos:
 
 ```powershell
 gh-upload-image Eternet/Eternet.Netmap .\screenshot.png
+gh-upload-image Eternet/Eternet.Netmap .\demo.mp4
 ```
 
 Output:
@@ -56,6 +57,8 @@ Multiple files are supported:
 ```powershell
 gh-upload-image owner/repo .\before.png .\after.png
 ```
+
+GitHub supports video attachments with `.mp4`, `.mov`, and `.webm`. H.264 `.mp4` is usually the safest option for browser playback.
 
 ## Requirements
 
@@ -76,5 +79,5 @@ GitHub's private upload endpoint does not accept a normal `gh auth token` or PAT
 
 ```markdown
 ## PR Evidence Screenshots
-- If the user explicitly asks to upload screenshots through GitHub `user-attachments`, use `gh-upload-image owner/repo path\image.png` from `https://github.com/Germandf/gh-user-attachment-upload`; it uploads local images as GitHub `user-attachments` and prints Markdown links. Requires prior `gh-upload-image configure` or local env var `GH_USER_SESSION`; never ask the user to paste that cookie in chat and never echo it in logs.
+- If the user explicitly asks to upload screenshots or videos through GitHub `user-attachments`, use `gh-upload-image owner/repo path\file.ext` from `https://github.com/Germandf/gh-user-attachment-upload`; it uploads local images/videos as GitHub `user-attachments` and prints Markdown links. Requires prior `gh-upload-image configure` or local env var `GH_USER_SESSION`; never ask the user to paste that cookie in chat and never echo it in logs.
 ```
