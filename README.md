@@ -52,6 +52,12 @@ Output:
 ![screenshot.png](https://github.com/user-attachments/assets/...)
 ```
 
+For videos, the output is a raw URL. Paste it alone in its own paragraph so GitHub renders the video player:
+
+```markdown
+https://github.com/user-attachments/assets/...
+```
+
 Multiple files are supported:
 
 ```powershell
@@ -80,4 +86,5 @@ GitHub's private upload endpoint does not accept a normal `gh auth token` or PAT
 ```markdown
 ## PR Evidence Screenshots
 - If the user explicitly asks to upload screenshots or videos through GitHub `user-attachments`, use `gh-upload-image owner/repo path\file.ext` from `https://github.com/Germandf/gh-user-attachment-upload`; it uploads local images/videos as GitHub `user-attachments` and prints Markdown links. Requires prior `gh-upload-image configure` or local env var `GH_USER_SESSION`; never ask the user to paste that cookie in chat and never echo it in logs.
+- When embedding GitHub `user-attachments` videos in PR descriptions or comments, put the raw video URL alone on its own line, with a blank line before and after. Do not prefix the URL with labels or bullets, because GitHub may not render the video player.
 ```
